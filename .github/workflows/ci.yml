@@ -1,0 +1,121 @@
+name: CI
+
+# This is a Markdown + CSV content repository (book companion pack), so CI is a
+# documentation-quality and content-discipline gate, not a build/test pipeline:
+#   - markdownlint  : structural lint of every Markdown file
+#   - link check    : flag broken links in the docs
+#   - NDA token scan : this is a PUBLIC surface; no client names / internal terms
+#   - GHA SHA pinning: every `uses:` must be pinned to a 40-char commit SHA
+# Every action below is pinned to a full commit SHA (the trailing comment is the
+# human-readable tag). Dependabot rolls these forward.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  markdownlint:
+    name: Markdownlint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Run markdownlint-cli2
+        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd # v23.2.0
+        with:
+          globs: "**/*.md"
+
+  link-check:
+    name: Link check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Run lychee
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+        with:
+          args: --no-progress --accept 200,206,403,429 "**/*.md"
+          fail: true
+
+  nda-token-scan:
+    name: NDA token scan (public surface)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Scan content for forbidden tokens
+        shell: bash
+        run: |
+          # PUBLIC repo => `public` surface under the universal NDA principle.
+          # The CANONICAL forbidden-token list lives in the private
+          # salvador-cloud-site repo (scripts/config/forbidden-tokens.json) and
+          # is CODEOWNERS-gated there. This job carries a minimal, self-contained
+          # mirror of the `alwaysForbidden` tokens so the public repo needs no
+          # access to the private config. Keep the two in rough sync; the site's
+          # list governs. A hit here fails the build.
+          set -uo pipefail
+          # Word-boundary-ish patterns for client names and internal terms that
+          # must never appear on any public surface.
+          patterns=(
+            '\bKlarna\b'
+            '\bElexon\b'
+            '\bNewDay\b'
+            '\bNPA-[0-9]{4,}\b'
+            '\bMCA-[0-9]{4,}\b'
+            '\bklarna\.(slack\.com|atlassian\.net)\b'
+            '\b(engineering|aws)\.klarna\.net\b'
+            '\byapmetrics\b'
+            '\bDSL Bot\b'
+          )
+          rc=0
+          for p in "${patterns[@]}"; do
+            if grep -rnIE "$p" --include='*.md' --include='*.csv' . ; then
+              echo "::error::Forbidden token matched on public surface: /$p/"
+              rc=1
+            fi
+          done
+          if [ "$rc" -ne 0 ]; then
+            echo "NDA token scan FAILED. Remove client/internal references before publishing."
+            exit 1
+          fi
+          echo "NDA token scan passed: no forbidden tokens on the public surface."
+
+  gha-pinning:
+    name: GHA SHA pinning
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Assert every `uses:` is pinned to a 40-char commit SHA
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Every `uses:` referencing a remote action (owner/repo@ref) must pin
+          # ref to a full 40-hex-char commit SHA. Local actions (./...) and
+          # reusable-workflow refs are out of scope.
+          bad=$(grep -rnE '^\s*-?\s*uses:\s*[^.][^@]+@' .github/workflows \
+            | grep -vE '@[0-9a-f]{40}(\s|$|#)' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Unpinned GitHub Action(s) found (must be a 40-char commit SHA):"
+            echo "$bad"
+            exit 1
+          fi
+          echo "All actions are SHA-pinned."

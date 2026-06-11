@@ -1,0 +1,32 @@
+# markdownlint config for the companion pack.
+# These materials are author-formatted prose, tables, and fillable templates.
+# We lint for genuine structural problems but disable purely cosmetic rules
+# that would force reflowing the author's content without improving it.
+config:
+  # Long lines are common in tables and reference prose; do not enforce a width.
+  MD013: false
+  # Tables use varied alignment/compact styles by design.
+  MD060: false
+  # Emphasis is used as a lightweight label in some templates (e.g. "Owner: ...").
+  MD036: false
+  # Bare URLs are acceptable in these reference docs.
+  MD034: false
+  # Allow inline HTML where used intentionally.
+  MD033: false
+  # Duplicate headings can recur across template sections.
+  MD024: false
+  # First line need not be a top-level heading (some files lead with context).
+  MD041: false
+  # The templates are written compactly on purpose; do not force blank lines
+  # around every heading, list, and table, or rewrite the author's blockquotes
+  # and fenced blocks. These are cosmetic and would only reflow content.
+  MD022: false
+  MD032: false
+  MD058: false
+  MD028: false
+  MD040: false
+  MD049: false
+globs:
+  - "**/*.md"
+ignores:
+  - "node_modules"

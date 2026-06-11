@@ -1,0 +1,21 @@
+version: 2
+# This is a Markdown + CSV content repository with no package manifests, so the
+# only ecosystem to keep current is the GitHub Actions used by CI. Action
+# versions are SHA-pinned in the workflows; Dependabot opens PRs to roll the
+# pins forward (and updates the trailing `# vX.Y.Z` comment).
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    assignees:
+      - "gio-salvador"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: ci
+      include: scope
+    # github-actions does not support per-semver cooldown (SHAs/tags do not
+    # expose a semver diff to Dependabot); default-days only.
+    cooldown:
+      default-days: 5

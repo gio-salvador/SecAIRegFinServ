@@ -1,0 +1,6 @@
+# CODEOWNERS — SecAIRegFinServ (book companion pack)
+# Giovanni is the required reviewer for every path. This repo carries the
+# Salvador Cloud brand and is the public back-matter link for the book, so
+# all changes go through him.
+
+*       @gio-salvador
