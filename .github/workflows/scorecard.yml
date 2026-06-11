@@ -1,0 +1,52 @@
+name: OpenSSF Scorecard
+
+# Supply-chain posture indicator. Scores the repo against a fixed checklist
+# (Branch-Protection, Pinned-Dependencies, Token-Permissions, Dangerous-Workflow,
+# Maintained, Security-Policy, ...) and publishes SARIF to the Security tab.
+# This repo is PUBLIC, so results are also published to the public
+# scorecard.dev dashboard. Every action is SHA-pinned.
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-24.04
+    permissions:
+      # Upload SARIF to the Security tab.
+      security-events: write
+      # Publish results to the public OpenSSF dashboard (OIDC).
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload to GitHub Security
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          sarif_file: scorecard.sarif
+          category: scorecard
